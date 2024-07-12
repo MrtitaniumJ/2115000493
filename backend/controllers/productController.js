@@ -1,49 +1,26 @@
-const asyncHandler = require('express-async-handler');
-const { fetchProducts } = require('../utils/apiHelper');
-const Product = require('../models/productModel');
+const { fetchProducts, fetchProductDetails } = require('../services/productService');
 
-const getTopProducts = asyncHandler(async (req, res) => {
-  const { categoryname } = req.params;
-  const { n = 10, page = 1, minPrice = 0, maxPrice = 10000, sort = '' } = req.query;
+const getProducts = async (req, res) => {
+    const { categoryname } = req.params;
+    const { n, page = 1, sort } = req.query;
 
-  const companies = ['AMZ', 'FLP', 'SNP', 'MYN', 'AZO'];
-  let allProducts = [];
+    try {
+        const products = await fetchProducts(categoryname, n, page, sort);
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-  for (const company of companies) {
-    const products = await fetchProducts(company, categoryname, minPrice, maxPrice);
-    allProducts = [...allProducts, ...products.map(product => ({
-      ...product,
-      company,
-      productId: `${company}-${product.productName}-${Math.random().toString(36).substr(2, 9)}`,
-    }))];
-  }
+const getProductDetails = async (req, res) => {
+    const { categoryname, productid } = req.params;
 
-  // Sorting logic
-  if (sort) {
-    const [key, order] = sort.split('_');
-    allProducts.sort((a, b) => {
-      if (order === 'asc') return a[key] - b[key];
-      return b[key] - a[key];
-    });
-  }
+    try {
+        const product = await fetchProductDetails(categoryname, productid);
+        res.json(product);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+};
 
-  // Pagination logic
-  const startIndex = (page - 1) * n;
-  const paginatedProducts = allProducts.slice(startIndex, startIndex + n);
-
-  res.json(paginatedProducts);
-});
-
-const getProductById = asyncHandler(async (req, res) => {
-  const { categoryname, productid } = req.params;
-  const product = await Product.findOne({ productId: productid, category: categoryname });
-
-  if (product) {
-    res.json(product);
-  } else {
-    res.status(404);
-    throw new Error('Product not found');
-  }
-});
-
-module.exports = { getTopProducts, getProductById };
+module.exports = { getProducts, getProductDetails };
